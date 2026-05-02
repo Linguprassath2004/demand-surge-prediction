@@ -4,3 +4,5 @@ lightgbm
 scikit-learn
 streamlit
 pathlib
+streamlit-geolocation
+requests
