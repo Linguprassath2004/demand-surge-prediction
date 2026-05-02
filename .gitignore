@@ -1,0 +1,4 @@
+# Ignore model and large data files
+models/lightgbm_model.txt
+data/raw/train.csv
+data/processed/features.csv
