@@ -5,6 +5,7 @@ import lightgbm as lgb
 from pathlib import Path
 import requests
 from datetime import datetime
+from streamlit_geolocation import streamlit_geolocation
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -15,7 +16,7 @@ st.set_page_config(
 
 # --- App Title and Description ---
 st.title("🚖 Ride-Hailing Demand Surge Detection")
-st.write("Detect real-time 30-minute demand surges using live location and network data.")
+st.write("Detect real-time 30-minute demand surges using live browser location and network data.")
 
 # --- Define Paths ---
 MODEL_PATH = Path("models/lightgbm_model.txt")
@@ -48,21 +49,6 @@ def load_trained_model():
 
 model = load_trained_model()
 
-# --- Helper Function: Fetch Real Location via IP ---
-def get_real_location():
-    """Fetches real-time city and coordinates using the ip-api service with fallback."""
-    try:
-        response = requests.get("http://ip-api.com/json/", timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data['status'] == 'success':
-                return data.get('city'), data.get('regionName'), data.get('lat'), data.get('lon')
-    except Exception as e:
-        pass # Fail silently
-    
-    # Fallback coordinates
-    return "Salem", "Tamil Nadu", 11.6643, 78.1460
-
 # --- Helper Function: Fetch Real-Time Data from API ---
 def get_real_time_data():
     """Fetches real-time hour and day of the week from the WorldTimeAPI with fallback."""
@@ -86,16 +72,20 @@ if model is None:
 else:
     st.sidebar.header("Input Features")
     
-    # Trigger location API
-    if st.sidebar.button("Fetch Real Location"):
-        city, region, lat, lon = get_real_location()
-        st.session_state['city'] = city
-        st.session_state['region'] = region
-        st.session_state['lat'] = lat
-        st.session_state['lon'] = lon
-        st.sidebar.success(f"Location Found: {city}, {region}")
+    # Browser Location Button
+    st.sidebar.subheader("Device Location")
+    if st.sidebar.button("Fetch My Location"):
+        location = streamlit_geolocation()
+        if location and 'latitude' in location and location['latitude'] is not None:
+            st.session_state['lat'] = location['latitude']
+            st.session_state['lon'] = location['longitude']
+            st.session_state['city'] = "Live Coordinates"
+            st.session_state['region'] = "Detected"
+            st.sidebar.success("Location obtained successfully!")
+        else:
+            st.sidebar.error("Failed to retrieve location. Please allow browser location permissions.")
     
-    # Initialize session defaults
+    # Initialize defaults
     if 'lat' not in st.session_state:
         st.session_state['city'] = "Salem"
         st.session_state['region'] = "Tamil Nadu"
@@ -115,7 +105,6 @@ else:
         st.sidebar.success(f"Time Fetched Successfully! (Hour: {hour})")
         
     if 'api_hour' not in st.session_state:
-        # Get baseline local time
         now = datetime.now()
         st.session_state['api_hour'] = now.hour
         st.session_state['api_day'] = now.weekday()
